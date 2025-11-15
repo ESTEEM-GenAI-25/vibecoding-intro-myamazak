@@ -64,7 +64,7 @@
   Single-Page Application (SPA) using HTML, Vanilla JavaScript, and Tailwind CSS (CDN).
 
 - **Hosting / Deployment:**  
-  Self-contained website.html file, intended for hosting via GitHub Pages or direct upload.
+  Self-contained index.html file, intended for hosting via GitHub Pages or direct upload.
 
 - **Performance / Security Requirements:**  
   Must be fully mobile responsive. Load time must be fast (minimal external resources).
