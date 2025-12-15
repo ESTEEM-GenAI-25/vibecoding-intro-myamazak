@@ -1,238 +1,412 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RouteMark: AI Route Design Prototype</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v8.2.0/ol.css" type="text/css">
-    <script src="https://cdn.jsdelivr.net/npm/ol@v8.2.0/dist/ol.js"></script>
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-        #map {
-            height: 500px;
-            width: 100%;
-            border-radius: 1rem;
-            border: 1px solid #e5e7eb;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>RouteMark — Aluminum Card (Cart Enabled)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@8.2.0/ol.css" type="text/css">
+  <script src="https://cdn.jsdelivr.net/npm/ol@8.2.0/dist/ol.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
+  <style>
+    html, body { height:100%; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, 'Noto Sans'; }
+    .al-card { position: relative; aspect-ratio: 85.6 / 54; width: 100%; max-width: 640px;
+      border-radius: 18px; overflow: hidden; background: #0a0a0a; box-shadow: 0 14px 28px rgba(0,0,0,.35), 0 10px 10px rgba(0,0,0,.28); }
+    .al-inset { position:absolute; inset:18px; border-radius: 12px; background: #0a0a0a; border: 1px solid rgba(255,255,255,0.07); overflow: hidden; }
+    .al-brush { position:absolute; inset:0; background:
+      linear-gradient(120deg, rgba(255,255,255,0.08), rgba(255,255,255,0) 35%),
+      repeating-linear-gradient(90deg, rgba(255,255,255,0.03) 0 1px, rgba(0,0,0,0) 2px 6px);
+      mix-blend-mode: screen; pointer-events:none; }
+    #engrave-preview { width: 100%; height: 100%; background: transparent; }
+    .img-coast canvas { filter: invert(1) contrast(1.35) brightness(1.1); mix-blend-mode: screen; opacity: var(--img-op, 0.7); }
+    label { display:block; font-size:.9rem; font-weight:600; margin-top:.5rem; }
+
+    /* Cart drawer */
+    .drawer { position: fixed; top: 0; right: 0; height: 100%; width: 380px; max-width: 90vw; background: #fff;
+      box-shadow: -10px 0 30px rgba(0,0,0,.25); transform: translateX(100%); transition: transform .25s ease; z-index: 9999; display:flex; flex-direction:column; }
+    .drawer.open { transform: translateX(0); }
+    .drawer-header { padding: 16px; border-bottom: 1px solid #e5e7eb; display:flex; justify-content:space-between; align-items:center; }
+    .drawer-body { padding: 16px; flex:1; overflow:auto; }
+    .drawer-footer { padding: 16px; border-top: 1px solid #e5e7eb; }
+    .badge { display:inline-flex; align-items:center; justify-content:center; min-width:1.75rem; height:1.75rem; border-radius:9999px; background:#111827; color:#fff; font-size:.75rem; }
+  </style>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
-
-    <div class="w-full max-w-4xl bg-white p-8 rounded-2xl shadow-xl flex flex-col items-center">
-        <h1 class="text-4xl font-bold text-gray-800 mb-2">RouteMark AI Designer</h1>
-        <p class="text-gray-500 mb-6 text-center">Customize the AI's aesthetic choices for your laser-engraved keepsake.</p>
-
-        <div class="w-full flex flex-col space-y-4 mb-6">
-            <input type="text" id="route-input" placeholder="e.g., Tokyo - New York - LA" class="p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-200 shadow-sm">
-            
-            <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-                <select id="vibe-selector" class="flex-grow p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 shadow-sm bg-white">
-                    <option value="default">1. Select AI Aesthetic Vibe</option>
-                    <option value="efficient">Efficient & Minimalist (Straight Line)</option>
-                    <option value="leisurely">Leisurely & Winding (Smooth Curve/Dashed)</option>
-                    <option value="premium">Premium & Detailed (Thick Solid Line)</option>
-                </select>
-                
-                <button id="draw-button" class="px-6 py-3 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 transition-colors duration-200">
-                    Generate AI Route
-                </button>
-            </div>
-            </div>
-
-        <div id="map"></div>
-        
-        <div id="ai-design-output" class="mt-4 p-4 w-full text-center bg-indigo-100 text-indigo-800 rounded-lg font-semibold border-l-4 border-indigo-600 hidden">
-            </div>
-        
-        <div id="message-box" class="mt-4 p-4 w-full text-center bg-gray-200 text-gray-700 rounded-lg hidden"></div>
+<body class="bg-gray-50 text-gray-900">
+  <header class="border-b bg-white">
+    <div class="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
+      <h1 class="text-xl font-bold">RouteMark — Aluminum Card</h1>
+      <button id="open-cart" class="relative border rounded-lg px-3 py-2 hover:bg-gray-50">
+        Cart <span id="cart-count" class="badge ml-2">0</span>
+      </button>
     </div>
+  </header>
 
-    <script>
-        // Constants for coordinate conversion (from degrees to mercator projection)
-        const fromLonLat = ol.proj.fromLonLat;
-        const toLonLat = ol.proj.toLonLat;
+  <section class="mx-auto max-w-6xl px-4 py-8">
+    <div class="grid md:grid-cols-2 gap-8 items-start">
+      <!-- LEFT controls -->
+      <div class="space-y-6">
+        <div class="rounded-lg border bg-white p-4 space-y-2">
+          <h2 class="text-2xl font-bold">Route & Vibe</h2>
+          <label>Route</label>
+          <input id="route-input" type="text" placeholder="Tokyo - New York" class="w-full p-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-violet-500"/>
+          <label>Vibe</label>
+          <select id="vibe-selector" class="w-full p-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-violet-500">
+            <option value="premium">Premium</option>
+            <option value="efficient">Efficient</option>
+            <option value="leisurely">Leisurely</option>
+          </select>
+          <div class="grid grid-cols-3 gap-3 mt-3">
+            <button id="draw-button" class="bg-violet-600 hover:bg-violet-700 text-white rounded-lg px-4 py-2">Generate</button>
+            <button id="engrave-export" class="bg-gray-900 text-white rounded-lg px-4 py-2 hover:bg-black">Export PNG</button>
+            <button id="add-to-cart" class="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg px-4 py-2">Add to Cart</button>
+          </div>
+          <div id="message-box" class="hidden p-3 rounded text-sm mt-2"></div>
+        </div>
 
-        // Map initialization
-        const map = new ol.Map({
-            target: 'map',
-            layers: [
-                new ol.layer.Tile({
-                    source: new ol.source.OSM()
-                })
-            ],
-            view: new ol.View({
-                center: fromLonLat([0, 0]),
-                zoom: 2
-            })
+        <div class="rounded-lg border bg-white p-4 space-y-3">
+          <h3 class="text-xl font-bold">Aluminum Card Settings</h3>
+          <label>Engraving style</label>
+          <select id="engrave-style" class="w-full p-2 rounded border">
+            <option value="classic">Classic (bright)</option>
+            <option value="soft">Soft (warm gray)</option>
+            <option value="dash">Dashed (subtle)</option>
+          </select>
+
+          <label>Context layers</label>
+          <div class="flex items-center gap-2 text-sm"><input id="engrave-coast" type="checkbox" class="rounded border" checked/><span>Coastlines (50m, stitched)</span></div>
+          <div class="flex items-center gap-2 text-sm"><input id="engrave-borders" type="checkbox" class="rounded border" checked/><span>Country borders (50m, stitched)</span></div>
+          <div class="flex items-center gap-2 text-sm"><input id="engrave-dots" type="checkbox" class="rounded border" checked/><span>Start/End dots</span></div>
+
+          <label>Layout</label>
+          <div class="grid grid-cols-2 gap-2">
+            <div><span class="text-xs text-gray-500">Card margin (px)</span><input id="card-margin" type="range" min="0" max="120" value="60" class="w-full"/></div>
+            <div>
+              <span class="text-xs text-gray-500">Quantity</span>
+              <input id="qty" type="number" min="1" value="1" class="w-full p-2 rounded border"/>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: card preview -->
+      <div>
+        <div class="al-card">
+          <div class="al-inset">
+            <div id="engrave-preview"></div>
+          </div>
+          <div class="al-brush"></div>
+        </div>
+        <p class="text-sm text-gray-500 mt-3">Preview of engraved black aluminum card. Export to PNG for proof.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Cart Drawer -->
+  <aside id="cart-drawer" class="drawer" aria-hidden="true">
+    <div class="drawer-header">
+      <div class="text-lg font-bold">Your Cart</div>
+      <button id="close-cart" class="border rounded px-2 py-1 hover:bg-gray-50">Close</button>
+    </div>
+    <div id="cart-items" class="drawer-body space-y-4"></div>
+    <div class="drawer-footer">
+      <div class="flex items-center justify-between mb-3">
+        <span class="font-semibold">Subtotal</span>
+        <span id="cart-subtotal" class="font-bold">$0.00</span>
+      </div>
+      <button id="checkout" class="w-full bg-violet-600 hover:bg-violet-700 text-white rounded-lg px-4 py-2">Checkout</button>
+      <p class="text-xs text-gray-500 mt-2">Demo-only cart. No payment processing.</p>
+    </div>
+  </aside>
+
+  <script>
+    // ====== CONFIG ======
+    const CLEAN_COAST_LOCKED = true;
+    const DEV_UNDERLAY_ENABLED = false; // logic present, off by default
+    const PRODUCT_PRICE = 49.00; // USD per card
+
+    // ====== UTIL ======
+    const fromLonLat = ol.proj.fromLonLat;
+    const el = (id)=>document.getElementById(id);
+    const fmtUSD = (n)=>'$' + n.toFixed(2);
+    const show = (node)=>node.classList.remove('hidden');
+    const showMessage = (node, text, type='info') => { node.textContent=text; node.className="p-3 rounded text-sm";
+      if(type==='error'){node.classList.add('bg-red-100','text-red-800','border','border-red-300')} else if(type==='success'){node.classList.add('bg-green-50','text-green-800','border','border-green-300')} else {node.classList.add('bg-gray-100','text-gray-800')}; show(node); };
+
+    // ====== CITY DB / PARSER ======
+    const cityCoordinates = {'tokyo':[139.6917,35.6895],'new york':[-74.0060,40.7128],'los angeles':[-118.2437,34.0522],'london':[-0.1278,51.5074],'paris':[2.3522,48.8566],'sydney':[151.2093,-33.8688],'singapore':[103.8198,1.3521],'chicago':[-87.6298,41.8781],'seattle':[-122.3321,47.6062],'boston':[-71.0589,42.3601],'san francisco':[-122.4194,37.7749]};
+    const parseCities = (s) => (s||'').split(/ - |–|—|,|->|→|-/).map(c=>c.trim()).filter(Boolean);
+    const getCoordinates = (city) => cityCoordinates[city.trim().toLowerCase()] || null;
+
+    // ====== MAP ======
+    const previewMap = new ol.Map({ target:'engrave-preview', layers:[], controls:[], view:new ol.View({ center: fromLonLat([0,0]), zoom:2, enableRotation:false }) });
+
+    // Optional underlay logic (hidden)
+    const imgUrl = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEBLAEsAAD/4QByRXhpZgAASUkqAAgAAAADAA4BAgAoAAAAMgAAABoBBQABAAAAWgAAABsBBQABAAAAYgAAAAAAAABCbGFjayBzdHlsaXplZCBvdXRsaW5lZCB2ZWN0b3Igd29ybGQgbWFwLAEAAAEAAAAsAQAAAQAAAP/hBZlodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+Cjx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iPgoJPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4KCQk8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIiB4bWxuczpwaG90b3Nob3A9Imh0dHA6Ly9ucy5hZG9iZS5jb20vcGhvdG9zaG9wLzEuMC8iIHhtbG5zOklwdGM0eG1wQ29yZT0iaHR0cDovL2lwdGMub3JnL3N0ZC9JcHRjNHhtcENvcmUvMS4wL3htbG5zLyIgICB4bWxuczpHZXR0eUltYWdlc0dJRlQ9Imh0dHA6Ly94bXAuZ2V0dHlpbWFnZXMuY29tL2dpZnQvMS4wLyIgeG1sbnM6ZGM9Imh0dHA6Ly9wdXJsLm9yZy9kYy9lbGVtZW50cy8xLjEvIiB4bWxuczpwbHVzPSJodHRwOi8vbnMudXNlcGx1cy5vcmcvbGRmL3htcC8xLjAvIiAgeG1sbnM6aXB0Y0V4dD0iaHR0cDovL2lwdGMub3JnL3N0ZC9JcHRjNHhtcEV4dC8yMDA4LTAyLTI5LyIgeG1sbnM6eG1wUmlnaHRzPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvcmlnaHRzLyIgcGhvdG9zaG9wOkNyZWRpdD0iR2V0dHkgSW1hZ2VzIiBHZXR0eUltYWdlc0dJRlQ6QXNzZXRJRD0iOTM2NDEwNDQ4IiB4bXBSaWdodHM6V2ViU3RhdGVtZW50PSJodHRwczovL3d3dy5pc3RvY2twaG90by5jb20vbGVnYWwvbGljZW5zZS1hZ3JlZW1lbnQ/dXRtX21lZGl1bT1vcmdhbmljJmFtcDt1dG1fc291cmNlPWdvb2dsZSZhbXA7dXRtX2NhbXBhaWduPWlwdGN1cmwiIHBsdXM6RGF0YU1pbmluZz0iaHR0cDovL25zLnVzZXBsdXMub3JnL2xkZi92b2NhYi9ETUktUFJPSElCSVRFRC1FWENFUFRTRUFSQ0hFTkdJTkVJTkRFWElORyIgPgo8ZGM6Y3JlYXRvcj48cmRmOlNlcT48cmRmOmxpPnN1Y2NvZGVzaWduPC9yZGY6bGk+PC9yZGY6U2VxPjwvZGM6Y3JlYXRvcj48ZGM6ZGVzY3JpcHRpb24+PHJkZjpBbHQ+PHJkZjpsaSB4bWw6bGFuZz0ieC1kZWZhdWx0Ij5CbGFjayBzdHlsaXplZCBvdXRsaW5lZCB2ZWN0b3Igd29ybGQgbWFwPC9yZGY6bGk+PC9yZGY6QWx0PjwvZGM6ZGVzY3JpcHRpb24+CjxwbHVzOkxpY2Vuc29yPjxyZGY6U2VxPjxyZGY6bGkgcmRmOnBhcnNlVHlwZT0nUmVzb3VyY2UnPjxwbHVzOkxpY2Vuc29yVVJMPmh0dHBzOi8vd3d3LmlzdG9ja3Bob3RvLmNvbS9waG90by9saWNlbnNlLWdtOTM2NDEwNDQ4LT91dG1fbWVkaXVtPW9yZ2FuaWMmYW1wO3V0bV9zb3VyY2U9Z29vZ2xlJmFtcDt1dG1fY2FtcGFpZ249aXB0Y3VybDwvcGx1czpMaWNlbnNvclVSTD48L3JkZjpsaT48L3JkZjpTZXE+PC9wbHVzOkxpY2Vuc29yPgoJCTwvcmRmOkRlc2NyaXB0aW9uPgoJPC9yZGY6UkRGPgo8L3g6eG1wbWV0YT4KPD94cGFja2V0IGVuZD0idyI/Pgr/7QBqUGhvdG9zaG9wIDMuMAA4QklNBAQAAAAAAE4cAlAAC3N1Y2NvZGVzaWduHAJ4AChCbGFjayBzdHlsaXplZCBvdXRsaW5lZCB2ZWN0b3Igd29ybGQgbWFwHAJuAAxHZXR0eSBJbWFnZXP/2wBDAAoHBwgHBgoICAgLCgoLDhgQDg0NDh0VFhEYIx8lJCIfIiEmKzcvJik0KSEiMEExNDk7Pj4+JS5ESUM8SDc9Pjv/wgALCAGWAmQBAREA/8QAGgABAQEBAQEBAAAAAAAAAAAAAAQDAgEFBv/aAAgBAQAAAAH9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";
+    const worldExtent = ol.proj.get('EPSG:3857').getExtent();
+    const worldWidth = worldExtent[2] - worldExtent[0];
+    let imageLayers = [];
+    function clearImageLayers(){ imageLayers.forEach(l=>previewMap.removeLayer(l)); imageLayers=[]; }
+    function addImageCopy(shiftX){ const extent4326=[-180,-85,180,85]; let extent=ol.proj.transformExtent(extent4326,'EPSG:4326','EPSG:3857');
+      extent=[extent[0]+shiftX, extent[1], extent[2]+shiftX, extent[3]];
+      const layer = new ol.layer.Image({ className:'img-coast', source: new ol.source.ImageStatic({ url: imgUrl, imageExtent: extent, projection:'EPSG:3857', interpolate:true }) });
+      layer.setZIndex(0); previewMap.addLayer(layer); imageLayers.push(layer); }
+    function ensureImageUnderlay(){
+      if(!DEV_UNDERLAY_ENABLED){ clearImageLayers(); return; }
+      clearImageLayers();
+      addImageCopy(-worldWidth); addImageCopy(0); addImageCopy(worldWidth);
+    }
+    document.documentElement.style.setProperty('--img-op', 0.65);
+
+    // Seam cleaning helpers
+    function isBadSegment(a, b, epsLat=0.05, minLon=5, latBand=84.5){
+      const dlat = Math.abs(a[1]-b[1]);
+      const dlon = Math.abs(a[0]-b[0]);
+      if (dlat < epsLat && dlon > minLon) return true;
+      if (Math.abs(a[1])>latBand && Math.abs(b[1])>latBand && dlon>1) return true;
+      return false;
+    }
+    function cleanLineString(coords){
+      if (!coords || coords.length<2) return [coords];
+      const parts=[]; let cur=[coords[0]];
+      for(let i=1;i<coords.length;i++){
+        const a=coords[i-1], b=coords[i];
+        if (isBadSegment(a,b)){
+          if (cur.length>1) parts.push(cur);
+          cur=[b];
+        } else {
+          cur.push(b);
+        }
+      }
+      if (cur.length>1) parts.push(cur);
+      return parts.length?parts:[coords];
+    }
+    function cleanFeatureGeometry(geom){
+      if (!geom) return geom;
+      if (geom.type==='LineString'){
+        const parts = cleanLineString(geom.coordinates);
+        return parts.length===1 ? { type:'LineString', coordinates: parts[0] } : { type:'MultiLineString', coordinates: parts };
+      }
+      if (geom.type==='MultiLineString'){
+        let out=[];
+        for (const ls of geom.coordinates){ out = out.concat(cleanLineString(ls)); }
+        return { type:'MultiLineString', coordinates: out };
+      }
+      if (geom.type==='Polygon'){
+        const rings = geom.coordinates || []; let out=[];
+        for (const ring of rings){ out = out.concat(cleanLineString(ring)); }
+        return { type:'MultiLineString', coordinates: out };
+      }
+      if (geom.type==='MultiPolygon'){
+        let out=[];
+        for (const poly of geom.coordinates){ for (const ring of poly){ out = out.concat(cleanLineString(ring)); } }
+        return { type:'MultiLineString', coordinates: out };
+      }
+      return geom;
+    }
+    function cleanFeatureCollection(fc){
+      const out = { type:'FeatureCollection', features:[] };
+      for (const f of fc.features){
+        const g = cleanFeatureGeometry(f.geometry);
+        out.features.push({ type:'Feature', properties:f.properties||{}, geometry:g });
+      }
+      return out;
+    }
+
+    let coastLayer=null, bordersLayer=null;
+
+    async function ensureCoastLayer(){
+      if (coastLayer) return coastLayer;
+      const res = await fetch('https://unpkg.com/world-atlas@2/land-50m.json'); const topo = await res.json();
+      const meshGeom = topojson.mesh(topo, topo.objects.land);
+      let fc = { type:'FeatureCollection', features:[{ type:'Feature', properties:{}, geometry: meshGeom }] };
+      if (CLEAN_COAST_LOCKED){ fc = cleanFeatureCollection(fc); }
+      const feats = new ol.format.GeoJSON().readFeatures(fc, { dataProjection:'EPSG:4326', featureProjection: previewMap.getView().getProjection() });
+      const src = new ol.source.Vector({ features: feats, wrapX: true });
+      coastLayer = new ol.layer.Vector({ source: src, renderBuffer: 4096, style: new ol.style.Style({ stroke: new ol.style.Stroke({ color:'rgba(248,250,252,0.95)', width:1.2, lineJoin:'round' }) }) });
+      coastLayer.setZIndex(100);
+      previewMap.addLayer(coastLayer);
+      return coastLayer;
+    }
+
+    async function ensureBordersLayer(){
+      if (bordersLayer) return bordersLayer;
+      const res = await fetch('https://unpkg.com/world-atlas@2/countries-50m.json'); const topo = await res.json();
+      const mesh = topojson.mesh(topo, topo.objects.countries, (a,b)=>a!==b);
+      const fc = { type:'FeatureCollection', features:[{ type:'Feature', properties:{}, geometry: mesh }] };
+      const feats = new ol.format.GeoJSON().readFeatures(fc, { dataProjection:'EPSG:4326', featureProjection: previewMap.getView().getProjection() });
+      const src = new ol.source.Vector({ features: feats, wrapX: true });
+      bordersLayer = new ol.layer.Vector({ source: src, renderBuffer: 4096, style: new ol.style.Style({ stroke: new ol.style.Stroke({ color:'rgba(236,239,244,0.75)', width:0.9 }) }) });
+      bordersLayer.setZIndex(140);
+      previewMap.addLayer(bordersLayer);
+      return bordersLayer;
+    }
+
+    // Great circle + drawing
+    function toRad(d){return d*Math.PI/180;} function toDeg(r){return r*180/Math.PI;}
+    function greatCircleArc(lon1, lat1, lon2, lat2, steps=96){
+      lon1=((lon1+180)%360+360)%360-180; lon2=((lon2+180)%360+360)%360-180;
+      function sph2cart(phi,lam){return [Math.cos(phi)*Math.cos(lam), Math.cos(phi)*Math.sin(lam), Math.sin(phi)];}
+      function cart2sph(xyz){const [x,y,z]=xyz; return [toDeg(Math.atan2(y,x)), toDeg(Math.atan2(z, Math.sqrt(x*x+y*y)))];}
+      const f1=toRad(lat1), L1=toRad(lon1), f2=toRad(lat2), L2=toRad(lon2);
+      const A=sph2cart(f1,L1), B=sph2cart(f2,L2); const dot=Math.max(-1,Math.min(1,A[0]*B[0]+A[1]*B[1]+A[2]*B[2])); const w=Math.acos(dot);
+      if(w===0) return [[lon1,lat1],[lon2,lat2]]; const pts=[];
+      for(let i=0;i<=steps;i++){ const t=i/steps, s1=Math.sin((1-t)*w)/Math.sin(w), s2=Math.sin(t*w)/Math.sin(w);
+        const x=s1*A[0]+s2*B[0], y=s1*A[1]+s2*B[1], z=s1*A[2] + s2*B[2];
+        const sph=cart2sph([x,y,z]); let L=sph[0], P=sph[1];
+        if(i>0){ let prevL=pts[pts.length-1][0]; let curL=L; while(curL-prevL>180) curL-=360; while(curL-prevL<-180) curL+=360; L=curL; }
+        pts.push([L,P]);
+      } return pts;
+    }
+    const buildArcSegments=(coords)=>{ const segs=[]; for(let i=0;i<coords.length-1;i++){const a=coords[i],b=coords[i+1]; segs.push(greatCircleArc(a[0],a[1],b[0],b[1],128));} return segs; };
+
+    const drawRouteOn=(m,segments,styleCfg,name='route-layer',padding=60)=>{
+      const lines=segments.map(seg=>seg.map(p=>ol.proj.fromLonLat(p)));
+      const geom=new ol.geom.MultiLineString(lines); const feature=new ol.Feature({geometry:geom});
+      const style=new ol.style.Style({stroke:new ol.style.Stroke({color:styleCfg.color,width:styleCfg.width,lineDash:styleCfg.lineDash})});
+      const src=new ol.source.Vector({features:[feature],wrapX:true});
+      const layer=new ol.layer.Vector({source:src,renderBuffer:2048,style}); layer.set('name',name);
+      layer.setZIndex(1000); m.addLayer(layer);
+      m.getView().fit(src.getExtent(), {padding:[padding,padding,padding,padding], duration:400}); return layer;
+    };
+
+    let lastArcSegmentsLonLat=null, lastCityLonLat=null;
+
+    function applyAIVibeStyle(vibe){
+      const base={ color:'#ffffff', width:7, lineDash:null };
+      if(vibe==='efficient') return {...base, width:6};
+      if(vibe==='leisurely') return {...base, width:6, lineDash:[10,10]};
+      if(vibe==='premium') return {...base, width:8};
+      return base;
+    }
+
+    async function drawPreview(){
+      ensureImageUnderlay(); // no-op unless DEV flag flipped
+
+      if (coastLayer){ previewMap.removeLayer(coastLayer); coastLayer=null; }
+      if(el('engrave-coast').checked) await ensureCoastLayer();
+      if (bordersLayer){ bordersLayer.setVisible(false); }
+      if(el('engrave-borders').checked) await ensureBordersLayer();
+
+      if(lastArcSegmentsLonLat){
+        const padding = Number(el('card-margin').value)||60;
+        previewMap.getLayers().getArray().slice().forEach(l=>{ if(l.get('name')==='route-layer'||l.get('name')==='dots-layer') previewMap.removeLayer(l); });
+        const mode = el('engrave-style').value;
+        const baseColor = (mode==='classic') ? '#ffffff' : (mode==='soft' ? '#e5e7eb' : '#f3f4f6');
+        const dash = (mode==='dash') ? [10,10] : null;
+        const routeLayer = drawRouteOn(previewMap, lastArcSegmentsLonLat, { color: baseColor, width: 7, lineDash: dash }, 'route-layer', padding);
+        routeLayer.setZIndex(1000);
+
+        if(el('engrave-dots').checked && lastCityLonLat && lastCityLonLat.length>=2){
+          const se=[ lastCityLonLat[0], lastCityLonLat[lastCityLonLat.length-1] ];
+          const feats = se.map(([lon,lat])=> new ol.Feature({ geometry: new ol.geom.Point(fromLonLat([lon,lat])) }));
+          const src = new ol.source.Vector({ features: feats, wrapX: true });
+          const dots = new ol.layer.Vector({ source: src, renderBuffer: 2048, style: new ol.style.Style({
+            image: new ol.style.Circle({ radius: 4.5, fill: new ol.style.Fill({ color: baseColor }), stroke: new ol.style.Stroke({ color:'#0a0a0a', width:1.25 }) })
+          }) });
+          dots.set('name','dots-layer'); dots.setZIndex(1100); previewMap.addLayer(dots);
+        }
+      }
+    }
+
+    function simulateDraw(){
+      const cities = parseCities(el('route-input').value);
+      if(!cities.length){ showMessage(el('message-box'),'Please enter a route.','error'); return; }
+      const coords=[]; const list=[];
+      for(const c of cities){ const cc=getCoordinates(c); if(!cc){ showMessage(el('message-box'),`Could not find: ${c}`,'error'); return; } coords.push(cc); list.push([cc[0],cc[1],c]); }
+      lastCityLonLat=list; lastArcSegmentsLonLat=buildArcSegments(coords);
+      drawPreview(); showMessage(el('message-box'),'Route drawn. Card updated.','success');
+    }
+
+    function exportCardPNG(){
+      const m=previewMap; const size=m.getSize();
+      const canvas=document.createElement('canvas'); canvas.width=size[0]; canvas.height=size[1];
+      const ctx=canvas.getContext('2d');
+      ctx.fillStyle='#0a0a0a'; ctx.fillRect(0,0,canvas.width,canvas.height);
+      for(let y=0;y<canvas.height;y+=2){ ctx.globalAlpha=0.03; ctx.fillStyle='#ffffff'; ctx.fillRect(0,y,canvas.width,1); }
+      ctx.globalAlpha=1;
+      Array.prototype.forEach.call(m.getViewport().querySelectorAll('.ol-layer canvas'), function(c){
+        if(c.width>0){ const opacity=c.parentNode.style.opacity; ctx.globalAlpha=opacity===''?1:Number(opacity);
+          const transform=c.style.transform; const matrix=transform.match(/^matrix\(([^(]*)\)$/)[1].split(',').map(Number);
+          CanvasRenderingContext2D.prototype.setTransform.apply(ctx, matrix); ctx.drawImage(c,0,0);
+        }
+      });
+      const link=document.createElement('a'); link.download='routemark_card_cart.png';
+      link.href=canvas.toDataURL('image/png'); link.click();
+    }
+
+    // ====== CART (localStorage) ======
+    const CART_KEY = 'routemark_cart_v1';
+    function loadCart(){
+      try{ return JSON.parse(localStorage.getItem(CART_KEY)||'[]'); }catch{ return []; }
+    }
+    function saveCart(items){ localStorage.setItem(CART_KEY, JSON.stringify(items)); }
+    function cartCount(items){ return items.reduce((a,b)=>a+b.qty,0); }
+    function cartSubtotal(items){ return items.reduce((a,b)=>a + b.qty * b.price, 0); }
+
+    function renderCart(){
+      const items = loadCart();
+      el('cart-count').textContent = cartCount(items);
+      el('cart-subtotal').textContent = fmtUSD(cartSubtotal(items));
+      const container = el('cart-items');
+      container.innerHTML = '';
+      if(!items.length){ container.innerHTML = '<p class="text-sm text-gray-500">Your cart is empty.</p>'; return; }
+      for(const it of items){
+        const d = document.createElement('div');
+        d.className = 'border rounded-lg p-3 space-y-2';
+        d.innerHTML = `
+          <div class="flex justify-between items-start">
+            <div>
+              <div class="font-semibold">RouteMark Aluminum Card</div>
+              <div class="text-xs text-gray-500">{} ${it.route} {'|'} ${it.vibe}</div>
+            </div>
+            <button data-id="${it.id}" class="rm-btn text-sm text-red-600 hover:underline">Remove</button>
+          </div>
+          <div class="flex items-center justify-between">
+            <div class="text-sm">Qty: ${it.qty}</div>
+            <div class="font-semibold">{fmtUSD(it.price * it.qty)}</div>
+          </div>`;
+        container.appendChild(d);
+      }
+      container.querySelectorAll('.rm-btn').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          const id = btn.getAttribute('data-id');
+          const after = loadCart().filter(x=>String(x.id)!==String(id));
+          saveCart(after); renderCart();
         });
+      });
+    }
 
-        const routeInput = document.getElementById('route-input');
-        const drawButton = document.getElementById('draw-button');
-        const vibeSelector = document.getElementById('vibe-selector');
-        const messageBox = document.getElementById('message-box');
-        const aiDesignOutput = document.getElementById('ai-design-output');
+    function addToCart(){
+      const route = el('route-input').value.trim();
+      if(!route){ showMessage(el('message-box'),'Enter a route before adding to cart.','error'); return; }
+      const vibe = el('vibe-selector').value;
+      const qty = Math.max(1, parseInt(el('qty').value||'1',10));
+      const id = Date.now();
+      const items = loadCart();
+      items.push({ id, route, vibe, qty, price: PRODUCT_PRICE });
+      saveCart(items);
+      renderCart();
+      document.getElementById('cart-drawer').classList.add('open');
+    }
 
-        // This is a simplified geocoding function for demonstration purposes.
-        const cityCoordinates = {
-            'tokyo': [139.6917, 35.6895],
-            'new york': [-74.0060, 40.7128],
-            'miami': [-80.1918, 25.7617],
-            'la': [-118.2437, 34.0522],
-            'london': [-0.1278, 51.5074],
-            'paris': [2.3522, 48.8566],
-            'berlin': [13.4050, 52.5200],
-            'sydney': [151.2093, -33.8688],
-            'mumbai': [72.8777, 19.0760],
-            'singapore': [103.8198, 1.3521]
-        };
+    // ====== WIRES ======
+    el('draw-button').addEventListener('click', simulateDraw);
+    el('engrave-export').addEventListener('click', exportCardPNG);
+    el('engrave-coast').addEventListener('change', drawPreview);
+    el('engrave-borders').addEventListener('change', drawPreview);
+    el('engrave-dots').addEventListener('change', drawPreview);
+    el('card-margin').addEventListener('input', drawPreview);
 
-        const getCoordinates = (city) => {
-            const normalizedCity = city.trim().toLowerCase();
-            return cityCoordinates[normalizedCity];
-        };
+    // cart
+    el('add-to-cart').addEventListener('click', addToCart);
+    el('open-cart').addEventListener('click', ()=>{ el('cart-drawer').classList.add('open'); renderCart(); });
+    el('close-cart').addEventListener('click', ()=>{ el('cart-drawer').classList.remove('open'); });
+    el('checkout').addEventListener('click', ()=>{ alert('Demo only — connect to your checkout later.'); });
 
-        const clearMapFeatures = () => {
-            map.getLayers().forEach(layer => {
-                if (layer.get('name') === 'route-layer') {
-                    map.removeLayer(layer);
-                }
-            });
-        };
-
-        const showMessage = (text, type = 'info', target = messageBox) => {
-            target.textContent = text;
-            target.className = `mt-4 p-4 w-full text-center rounded-lg block`;
-            if (type === 'error') {
-                target.classList.add('bg-red-200', 'text-red-800');
-            } else if (type === 'ai-output') {
-                 target.classList.add('bg-purple-100', 'text-purple-800', 'font-semibold', 'border-l-4', 'border-purple-600');
-            } else {
-                target.classList.add('bg-gray-200', 'text-gray-700');
-            }
-        };
-
-        /**
-         * The Core AI Simulation Function:
-         * Maps a subjective 'vibe' to concrete, aesthetic design parameters (style).
-         * This logic represents the proprietary RouteMark AI algorithm.
-         */
-        const applyAIVibeStyle = (vibe) => {
-            let styleConfig = {
-                color: '#6366f1', // Default indigo
-                width: 5,
-                lineDash: null,
-                aiMessage: 'The AI is generating your route using standard optimized design principles.'
-            };
-
-            switch (vibe) {
-                case 'efficient':
-                    styleConfig.color = '#10b981'; // Green for efficiency
-                    styleConfig.width = 4;
-                    styleConfig.aiMessage = 'AI has selected the **Efficient & Minimalist** design: A thin, straight, single-line route for clarity on the metal engraving.';
-                    break;
-                case 'leisurely':
-                    styleConfig.color = '#f59e0b'; // Amber for winding/leisurely
-                    styleConfig.width = 3;
-                    styleConfig.lineDash = [10, 10]; // Dashed line
-                    styleConfig.aiMessage = 'AI has selected the **Leisurely & Winding** design: A subtle dashed route, suggesting a journey with many stops and time to explore.';
-                    break;
-                case 'premium':
-                    styleConfig.color = '#374151'; // Dark/Gunmetal for premium feel
-                    styleConfig.width = 8;
-                    styleConfig.aiMessage = 'AI has selected the **Premium & Detailed** design: A bold, solid route line, reflecting a highly significant and memorable itinerary.';
-                    break;
-            }
-            return styleConfig;
-        };
-
-
-        drawButton.addEventListener('click', () => {
-            const routeString = routeInput.value;
-            const selectedVibe = vibeSelector.value;
-            
-            if (!routeString) {
-                showMessage('Please enter a route.', 'error');
-                return;
-            }
-            if (selectedVibe === 'default') {
-                showMessage('Please select an AI Aesthetic Vibe.', 'error');
-                return;
-            }
-
-            clearMapFeatures();
-            messageBox.classList.add('hidden');
-            aiDesignOutput.classList.add('hidden');
-
-            const cityNames = routeString.split(/ - |-/).map(city => city.trim());
-            const coordinates = [];
-            let allCitiesFound = true;
-
-            for (const cityName of cityNames) {
-                const coords = getCoordinates(cityName);
-                if (coords) {
-                    coordinates.push(coords);
-                } else {
-                    showMessage(`Could not find coordinates for: ${cityName}. Please use a valid city from the example list.`, 'error');
-                    allCitiesFound = false;
-                    break;
-                }
-            }
-
-            if (allCitiesFound && coordinates.length > 1) {
-                // Get the AI-determined style configuration
-                const styleConfig = applyAIVibeStyle(selectedVibe);
-                
-                // Display the AI decision
-                showMessage(styleConfig.aiMessage, 'ai-output', aiDesignOutput);
-                aiDesignOutput.classList.remove('hidden');
-
-                // Convert coordinates to the map's projection
-                const projectedCoordinates = coordinates.map(coord => fromLonLat(coord));
-
-                // Create a line feature from the coordinates
-                const lineFeature = new ol.Feature({
-                    geometry: new ol.geom.LineString(projectedCoordinates)
-                });
-
-                // Create the style using the AI-determined configuration
-                const routeStyle = new ol.style.Style({
-                    stroke: new ol.style.Stroke({
-                        color: styleConfig.color,
-                        width: styleConfig.width,
-                        lineDash: styleConfig.lineDash
-                    }),
-                });
-
-                // Create a vector source and layer
-                const vectorSource = new ol.source.Vector({
-                    features: [lineFeature]
-                });
-                const vectorLayer = new ol.layer.Vector({
-                    source: vectorSource,
-                    style: routeStyle // Apply the AI-determined style
-                });
-                vectorLayer.set('name', 'route-layer'); 
-
-                // Add the layer to the map
-                map.addLayer(vectorLayer);
-
-                // Zoom to the extent of the line
-                const extent = vectorSource.getExtent();
-                map.getView().fit(extent, { padding: [50, 50, 50, 50], duration: 1000 });
-                showMessage('Route successfully drawn with the AI-determined aesthetic!', 'info');
-            } else if (allCitiesFound && coordinates.length <= 1) {
-                showMessage('Please enter at least two cities to draw a route.', 'error');
-            }
-        });
-        
-        // Removed the enableRoute2Button logic as it was not central to the AI demonstration
-    </script>
+    // init
+    renderCart();
+  </script>
 </body>
 </html>
